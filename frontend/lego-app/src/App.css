@@ -1452,6 +1452,25 @@
   letter-spacing: 1px;
 }
 
+/* Final step completion banner */
+.completion-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #FFD700;
+  border: 2px solid #1a1a1a;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #1a1a1a;
+  box-shadow: 3px 3px 0 #1a1a1a;
+}
+
 /* Page footer */
 .page-footer {
   display: flex;
