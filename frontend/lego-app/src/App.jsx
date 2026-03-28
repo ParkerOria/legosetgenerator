@@ -246,8 +246,8 @@ function App() {
           <span>BrickGen</span>
         </div>
         <ul className="nav-links">
-          <li><a href="#">Home</a></li>
-          <li><a href="#">About</a></li>
+          {/* <li><a href="#">Home</a></li>
+          <li><a href="#">About</a></li> */}
         </ul>
       </nav>
 
