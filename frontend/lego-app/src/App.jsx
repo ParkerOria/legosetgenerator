@@ -1,27 +1,14 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import './App.css'
 
-const MOCK_BUILDS = [
-  { id: 1, title: 'Medieval Castle',  description: 'A towering fortress with drawbridge, battlements, and two guard towers.', color: '#E3000B' },
-  { id: 2, title: 'Racing Car',       description: 'A sleek low-profile sports car with rear spoiler and aerodynamic side panels.', color: '#006CB7' },
-  { id: 3, title: 'Jungle Temple',    description: 'An ancient stone temple overgrown with vines and hidden trap chambers.', color: '#00A850' },
-  { id: 4, title: 'City Bridge',      description: 'A suspension bridge with twin support towers, cable stays, and a wide roadway.', color: '#FF6B00' },
+const LOADING_MESSAGES = [
+  'Fetching your brick inventory...',
+  'Designing your build concept...',
+  'Validating build steps...',
+  'Rendering your build...',
 ]
 
-const MOCK_STEPS = [
-  { id: 1,  title: 'Sort Your Pieces', parts: [] },
-  { id: 2,  title: 'Build the Base',   parts: [{ n: 2, label: '4×8', color: '#888' }, { n: 1, label: '6×6', color: '#888' }] },
-  { id: 3,  title: 'First Wall Layer', parts: [{ n: 8, label: '2×4', color: '#c0392b' }, { n: 4, label: '1×4', color: '#c0392b' }] },
-  { id: 4,  title: 'Left Tower',       parts: [{ n: 6, label: '2×4', color: '#c0392b' }, { n: 2, label: '2×2', color: '#c0392b' }] },
-  { id: 5,  title: 'Right Tower',      parts: [{ n: 6, label: '2×4', color: '#c0392b' }, { n: 2, label: '2×2', color: '#c0392b' }] },
-  { id: 6,  title: 'Gate Archway',     parts: [{ n: 4, label: '1×2', color: '#888' }, { n: 2, label: 'arch', color: '#888' }] },
-  { id: 7,  title: 'Drawbridge',       parts: [{ n: 2, label: '2×6', color: '#8B6914' }, { n: 4, label: '1×1', color: '#888' }] },
-  { id: 8,  title: 'Battlements',      parts: [{ n: 16, label: '1×1', color: '#c0392b' }, { n: 8, label: '1×2', color: '#c0392b' }] },
-  { id: 9,  title: 'Tower Roofs',      parts: [{ n: 8, label: 'slope', color: '#006CB7' }, { n: 4, label: '1×2', color: '#006CB7' }] },
-  { id: 10, title: 'Flags & Details',  parts: [{ n: 2, label: 'flag', color: '#FFD700' }, { n: 2, label: 'pole', color: '#888' }] },
-  { id: 11, title: 'Interior Details', parts: [{ n: 1, label: 'chair', color: '#8B6914' }, { n: 3, label: '1×1', color: '#FFD700' }] },
-  { id: 12, title: 'All Done!',        parts: [] },
-]
+const BUILD_COLOR = '#E3000B'
 
 function App() {
   const [stage, setStage] = useState('input') // 'input' | 'loading' | 'results' | 'instructions'
@@ -29,15 +16,38 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [editablePrompt, setEditablePrompt] = useState('')
-  const [selectedBuild, setSelectedBuild] = useState(null)
   const [currentStep, setCurrentStep] = useState(1)
   const [setNumber, setSetNumber] = useState(null)
   const [analyzingImage, setAnalyzingImage] = useState(false)
   const [analyzeError, setAnalyzeError] = useState(false)
   const [uploadedFile, setUploadedFile] = useState(null)
+  const [generatedBuild, setGeneratedBuild] = useState(null)
+  const [steps, setSteps] = useState([])
+  const [revealedCount, setRevealedCount] = useState(0)
+  const [stepsLoading, setStepsLoading] = useState(false)
+  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0)
+  const [generateError, setGenerateError] = useState(false)
+  const [stepImages, setStepImages] = useState({}) // { [stepIndex]: 'loading' | base64string | null }
   const fileInputRef = useRef(null)
 
-  const totalSteps = MOCK_STEPS.length
+  const totalSteps = revealedCount
+
+  // Cycle loading messages while generating
+  useEffect(() => {
+    if (stage !== 'loading') return
+    setLoadingMsgIndex(0)
+    const interval = setInterval(() => {
+      setLoadingMsgIndex(i => Math.min(i + 1, LOADING_MESSAGES.length - 1))
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [stage])
+
+  // Reveal steps one at a time once they arrive
+  useEffect(() => {
+    if (revealedCount >= steps.length) return
+    const t = setTimeout(() => setRevealedCount(c => c + 1), 180)
+    return () => clearTimeout(t)
+  }, [steps, revealedCount])
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true) }
   const handleDragLeave = () => setIsDragging(false)
@@ -93,19 +103,100 @@ function App() {
     fileInputRef.current.value = ''
   }
 
-  const handleGenerate = () => {
+  const fetchSteps = async (ideas, summary) => {
+    setStepsLoading(true)
+    setSteps([])
+    try {
+      const res = await fetch('/api/generate-steps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ideas, summary }),
+      })
+      if (!res.ok) throw new Error('Steps failed')
+      const data = await res.json()
+      setSteps(data.steps ?? [])
+    } catch {
+      setSteps([])
+    } finally {
+      setStepsLoading(false)
+    }
+  }
+
+  const handleGenerate = async () => {
     setEditablePrompt(prompt)
+    setGenerateError(false)
+    setGeneratedBuild(null)
+    setSteps([])
+    setRevealedCount(0)
+    setStepImages({})
     setStage('loading')
-    setTimeout(() => setStage('results'), 2200)
+    try {
+      const res = await fetch('/api/generate-build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ setNumber, prompt }),
+      })
+      if (!res.ok) throw new Error('Generation failed')
+      const data = await res.json()
+      setGeneratedBuild(data)
+      setStage('results')
+      fetchSteps(data.ideas, data.summary)
+    } catch {
+      setGenerateError(true)
+      setStage('results')
+    }
   }
 
-  const handleRegenerate = () => {
+  const handleRegenerate = async () => {
+    setGenerateError(false)
+    setGeneratedBuild(null)
+    setSteps([])
+    setRevealedCount(0)
+    setStepImages({})
     setStage('loading')
-    setTimeout(() => setStage('results'), 2200)
+    try {
+      const res = await fetch('/api/generate-build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ setNumber, prompt: editablePrompt }),
+      })
+      if (!res.ok) throw new Error('Generation failed')
+      const data = await res.json()
+      setGeneratedBuild(data)
+      setStage('results')
+      fetchSteps(data.ideas, data.summary)
+    } catch {
+      setGenerateError(true)
+      setStage('results')
+    }
   }
 
-  const handleChooseBuild = (build) => {
-    setSelectedBuild(build)
+  const fetchStepImage = async (stepIndex) => {
+    if (!generatedBuild) return
+    if (stepImages[stepIndex] !== undefined) return // already loaded or loading
+    const step = steps[stepIndex]
+    if (!step) return
+    setStepImages(prev => ({ ...prev, [stepIndex]: 'loading' }))
+    try {
+      const res = await fetch('/api/generate-step-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stepNum: step.step ?? stepIndex + 1,
+          title: step.title ?? '',
+          description: step.description ?? '',
+          summary: generatedBuild.summary ?? '',
+        }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      const data = await res.json()
+      setStepImages(prev => ({ ...prev, [stepIndex]: data.imageBase64 ?? null }))
+    } catch {
+      setStepImages(prev => ({ ...prev, [stepIndex]: null }))
+    }
+  }
+
+  const handleChooseBuild = () => {
     setCurrentStep(1)
     setStage('instructions')
   }
@@ -114,6 +205,8 @@ function App() {
     if (step < 1 || step > totalSteps) return
     setCurrentStep(step)
   }
+
+  const canGenerate = uploadedImage && prompt.trim() && setNumber
 
   return (
     <>
@@ -127,8 +220,7 @@ function App() {
           <span>BrickGen</span>
         </div>
         <ul className="nav-links">
-          <li><a href="#">How it works</a></li>
-          <li><a href="#">Gallery</a></li>
+          <li><a href="#">Home</a></li>
           <li><a href="#">About</a></li>
         </ul>
       </nav>
@@ -148,45 +240,27 @@ function App() {
               {uploadedImage ? (
                 <div className="upload-preview-wrap">
                   <img src={uploadedImage} alt="Uploaded LEGO set" className="upload-preview" />
-
                   <div className="scan-row">
                     {!setNumber && !analyzingImage && (
-                      <button
-                        className="scan-btn"
-                        onClick={(e) => { e.stopPropagation(); analyzeImage(uploadedFile) }}
-                      >
+                      <button className="scan-btn" onClick={(e) => { e.stopPropagation(); analyzeImage(uploadedFile) }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
                         </svg>
                         Find Set ID
                       </button>
                     )}
-
                     {analyzingImage && (
-                      <div className="set-badge scanning">
-                        <div className="scan-spinner" />
-                        Scanning...
-                      </div>
+                      <div className="set-badge scanning"><div className="scan-spinner" />Scanning...</div>
                     )}
-
                     {!analyzingImage && setNumber && (
-                      <div className="set-badge found">
-                        Set #{setNumber}
-                      </div>
+                      <div className="set-badge found">Set #{setNumber}</div>
                     )}
-
                     {!analyzingImage && analyzeError && (
                       <div className="set-badge error">
                         ID not found —
-                        <button
-                          className="retry-link"
-                          onClick={(e) => { e.stopPropagation(); analyzeImage(uploadedFile) }}
-                        >
-                          retry
-                        </button>
+                        <button className="retry-link" onClick={(e) => { e.stopPropagation(); analyzeImage(uploadedFile) }}>retry</button>
                       </div>
                     )}
-
                     <button className="remove-btn" onClick={handleRemoveImage}>Remove</button>
                   </div>
                 </div>
@@ -212,7 +286,7 @@ function App() {
                 to <span className="title-accent">build?</span>
               </h1>
               <p className="hero-sub">
-                Upload your LEGO set box, describe your idea, and we'll generate custom build plans using your exact bricks.
+                Upload your LEGO set box, describe your idea, and we'll generate a custom build plan using your exact bricks.
               </p>
               <textarea
                 className="prompt-input"
@@ -221,16 +295,15 @@ function App() {
                 onChange={(e) => setPrompt(e.target.value)}
                 rows={4}
               />
-              <button
-                className="generate-btn"
-                disabled={!uploadedImage || !prompt.trim()}
-                onClick={handleGenerate}
-              >
-                Generate Ideas
+              <button className="generate-btn" disabled={!canGenerate} onClick={handleGenerate}>
+                Generate Build
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </button>
+              {uploadedImage && !setNumber && (
+                <p className="generate-hint">Find your Set ID above before generating</p>
+              )}
             </div>
           </div>
         </section>
@@ -247,57 +320,79 @@ function App() {
                   <span className="context-label">Results for</span>
                   <span className="context-prompt">"{editablePrompt}"</span>
                 </div>
-                {setNumber && (
-                  <div className="context-set-badge">Set #{setNumber}</div>
-                )}
+                {setNumber && <div className="context-set-badge">Set #{setNumber}</div>}
               </div>
               <button className="start-over-btn" onClick={() => setStage('input')}>← Start over</button>
             </div>
 
             <div className="results-header">
               <h2 className="results-title">
-                {stage === 'loading' ? 'Generating your builds...' : '4 Build Ideas'}
+                {stage === 'loading' ? LOADING_MESSAGES[loadingMsgIndex] : (generateError ? 'Something went wrong' : 'Your Build')}
               </h2>
-              {stage === 'results' && <p className="results-sub">Pick the one you like, or refine your prompt below.</p>}
+              {stage === 'results' && !generateError && (
+                <p className="results-sub">Like what you see? Choose it to get your step-by-step guide.</p>
+              )}
             </div>
 
-            <div className="builds-grid">
-              {stage === 'loading'
-                ? Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="build-card skeleton">
-                      <div className="skeleton-img"></div>
-                      <div className="skeleton-body">
-                        <div className="skeleton-line wide"></div>
-                        <div className="skeleton-line"></div>
-                        <div className="skeleton-line short"></div>
-                        <div className="skeleton-btn"></div>
-                      </div>
-                    </div>
-                  ))
-                : MOCK_BUILDS.map((build) => (
-                    <div key={build.id} className="build-card">
-                      <div className="build-img-area" style={{ background: build.color }}>
+            <div className="builds-grid single">
+              {stage === 'loading' ? (
+                <div className="build-card skeleton">
+                  <div className="skeleton-img"></div>
+                  <div className="skeleton-body">
+                    <div className="skeleton-line wide"></div>
+                    <div className="skeleton-line"></div>
+                    <div className="skeleton-line short"></div>
+                    <div className="skeleton-btn"></div>
+                  </div>
+                </div>
+              ) : generateError ? (
+                <div className="generate-error-card">
+                  <p>The build could not be generated. This might be because the set parts aren't compatible with your prompt.</p>
+                  <p>Try editing your prompt below and regenerating.</p>
+                </div>
+              ) : generatedBuild && (
+                <div className="build-card">
+                  <div className="build-img-area generated">
+                    {generatedBuild.imageBase64 ? (
+                      <img
+                        src={`data:image/png;base64,${generatedBuild.imageBase64}`}
+                        alt={generatedBuild.title}
+                        className="build-generated-img"
+                      />
+                    ) : (
+                      <>
                         <div className="build-img-studs" />
                         <div className="build-card-brick">
-                          <div className="bc-stud"></div>
-                          <div className="bc-stud"></div>
-                          <div className="bc-stud"></div>
-                          <div className="bc-stud"></div>
+                          <div className="bc-stud"></div><div className="bc-stud"></div>
+                          <div className="bc-stud"></div><div className="bc-stud"></div>
                         </div>
-                      </div>
-                      <div className="build-body">
-                        <h3 className="build-title">{build.title}</h3>
-                        <p className="build-desc">{build.description}</p>
-                        <button className="choose-btn" onClick={() => handleChooseBuild(build)}>
-                          Choose this build
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M5 12h14M12 5l7 7-7 7" />
+                      </>
+                    )}
+                  </div>
+                  <div className="build-body">
+                    <h3 className="build-title">{generatedBuild.title}</h3>
+                    <p className="build-desc">{generatedBuild.description}</p>
+                    <div className="build-steps-preview">
+                      {stepsLoading && revealedCount === 0 ? (
+                        <><div className="scan-spinner" />Generating steps…</>
+                      ) : (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                           </svg>
-                        </button>
-                      </div>
+                          {revealedCount} of {stepsLoading ? '?' : steps.length} steps ready
+                        </>
+                      )}
                     </div>
-                  ))
-              }
+                    <button className="choose-btn" onClick={handleChooseBuild} disabled={revealedCount === 0}>
+                      Start building
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {stage === 'results' && (
@@ -324,109 +419,89 @@ function App() {
       )}
 
       {/* ── Instructions Stage ─────────────────────────── */}
-      {stage === 'instructions' && selectedBuild && (
+      {stage === 'instructions' && generatedBuild && (
         <section className="instructions-section">
           <div className="instructions-inner">
 
-            {/* Top bar */}
             <div className="instr-topbar">
               <button className="back-btn" onClick={() => setStage('results')}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
-                Back to builds
+                Back to build
               </button>
               <div className="instr-build-info">
-                <div className="instr-color-dot" style={{ background: selectedBuild.color }} />
-                <span className="instr-build-name">{selectedBuild.title}</span>
+                <div className="instr-color-dot" style={{ background: BUILD_COLOR }} />
+                <span className="instr-build-name">{generatedBuild.title}</span>
               </div>
               <span className="instr-step-counter">
                 Step <strong>{currentStep}</strong> of {totalSteps}
               </span>
             </div>
 
-            {/* Booklet + side arrows */}
             <div className="booklet-wrap">
-              <button
-                className="nav-arrow"
-                onClick={() => goToStep(currentStep - 1)}
-                disabled={currentStep === 1}
-                aria-label="Previous step"
-              >
+              <button className="nav-arrow" onClick={() => goToStep(currentStep - 1)} disabled={currentStep === 1} aria-label="Previous step">
                 &#8249;
               </button>
 
               <div className="booklet">
-                {/* Spine */}
-                <div className="booklet-spine" style={{ background: selectedBuild.color }}>
+                <div className="booklet-spine" style={{ background: BUILD_COLOR }}>
                   <span className="spine-text">BRICKGEN</span>
                 </div>
-
-                {/* Page */}
                 <div className="booklet-page">
-                  {/* Progress bar along top of page */}
                   <div className="page-progress-track">
-                    <div
-                      className="page-progress-fill"
-                      style={{
-                        width: `${(currentStep / totalSteps) * 100}%`,
-                        background: selectedBuild.color,
-                      }}
-                    />
+                    <div className="page-progress-fill" style={{ width: `${(currentStep / totalSteps) * 100}%`, background: BUILD_COLOR }} />
                   </div>
 
-                  {/* Animated page content */}
                   <div key={currentStep} className="booklet-content">
                     <div className="step-header-row">
-                      {/* Step number badge */}
-                      <div className="step-badge" style={{ background: selectedBuild.color }}>
+                      <div className="step-badge" style={{ background: BUILD_COLOR }}>
                         {currentStep === totalSteps
                           ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                           : currentStep
                         }
                       </div>
-                      <span className="step-title-text">{MOCK_STEPS[currentStep - 1].title}</span>
+                      <span className="step-title-text">{steps[currentStep - 1]?.title ?? ''}</span>
                     </div>
 
-                    {/* Parts needed */}
-                    {MOCK_STEPS[currentStep - 1].parts.length > 0 && (
-                      <div className="step-parts-row">
-                        <span className="parts-label">You'll need:</span>
-                        <div className="parts-list">
-                          {MOCK_STEPS[currentStep - 1].parts.map((p, i) => (
-                            <div key={i} className="part-chip">
-                              <div className="part-brick" style={{ background: p.color }} />
-                              <span>{p.n}× {p.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Step illustration placeholder */}
-                    <div
-                      className={`step-image-area${currentStep === totalSteps ? ' final-step' : ''}`}
-                      style={{ background: currentStep === totalSteps ? '#1a1a1a' : selectedBuild.color }}
-                    >
-                      <div className="step-img-studs" />
-                      {currentStep === totalSteps ? (
+                    {currentStep === totalSteps ? (
+                      <div className={`step-image-area final-step`} style={{ background: '#1a1a1a' }}>
+                        <div className="step-img-studs" />
                         <div className="completion-badge">
                           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M20 6 9 17l-5-5" />
                           </svg>
                           <span>Build Complete!</span>
                         </div>
-                      ) : (
-                        <div className="step-img-brick">
-                          <div className="sib-stud"></div>
-                          <div className="sib-stud"></div>
-                          <div className="sib-stud"></div>
-                          <div className="sib-stud"></div>
+                      </div>
+                    ) : stepImages[currentStep - 1] === 'loading' ? (
+                      <>
+                        <div className="step-img-skeleton" />
+                        <div className="step-desc-below">{steps[currentStep - 1]?.description ?? ''}</div>
+                      </>
+                    ) : stepImages[currentStep - 1] ? (
+                      <>
+                        <div className="step-image-area" style={{ background: '#f8f8f8' }}>
+                          <img
+                            src={`data:image/png;base64,${stepImages[currentStep - 1]}`}
+                            alt={`Step ${currentStep}`}
+                            className="step-preview-img"
+                          />
                         </div>
-                      )}
-                    </div>
+                        <div className="step-desc-below">{steps[currentStep - 1]?.description ?? ''}</div>
+                      </>
+                    ) : (
+                      <div className="step-text-area">
+                        <p className="step-desc-main">{steps[currentStep - 1]?.description ?? ''}</p>
+                        <button className="gen-img-btn" onClick={() => fetchStepImage(currentStep - 1)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
+                          </svg>
+                          Generate image
+                        </button>
+                      </div>
+                    )}
 
-                    {/* Page footer */}
                     <div className="page-footer">
                       <span className="page-num">{currentStep} / {totalSteps}</span>
                     </div>
@@ -434,30 +509,24 @@ function App() {
                 </div>
               </div>
 
-              <button
-                className="nav-arrow"
-                onClick={() => goToStep(currentStep + 1)}
-                disabled={currentStep === totalSteps}
-                aria-label="Next step"
-              >
+              <button className="nav-arrow" onClick={() => goToStep(currentStep + 1)} disabled={currentStep >= revealedCount || stepImages[currentStep - 1] === 'loading'} aria-label="Next step">
                 &#8250;
               </button>
             </div>
 
-            {/* Step progress dots */}
             <div className="step-dots-wrap">
               <div className="step-dots">
-                {MOCK_STEPS.map((step, i) => (
+                {steps.map((step, i) => (
                   <button
-                    key={step.id}
+                    key={i}
                     className={`step-dot${i + 1 === currentStep ? ' active' : ''}${i + 1 < currentStep ? ' done' : ''}`}
                     onClick={() => goToStep(i + 1)}
                     title={`Step ${i + 1}: ${step.title}`}
                     style={
                       i + 1 === currentStep
-                        ? { background: selectedBuild.color, borderColor: selectedBuild.color }
+                        ? { background: BUILD_COLOR, borderColor: BUILD_COLOR }
                         : i + 1 < currentStep
-                        ? { background: selectedBuild.color + '55', borderColor: selectedBuild.color + '99' }
+                        ? { background: BUILD_COLOR + '55', borderColor: BUILD_COLOR + '99' }
                         : {}
                     }
                   />
