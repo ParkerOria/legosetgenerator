@@ -186,6 +186,8 @@ function App() {
           title: step.title ?? '',
           description: step.description ?? '',
           summary: generatedBuild.summary ?? '',
+          overviewImageBase64: generatedBuild.imageBase64 ?? null,
+          prevImageBase64: stepIndex > 0 ? (stepImages[stepIndex - 1] || null) : null,
         }),
       })
       if (!res.ok) throw new Error('Failed')
