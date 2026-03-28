@@ -206,6 +206,103 @@
   border: 3px solid #1a1a1a;
 }
 
+/* Scan row — sits between preview image and remove button */
+.scan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.scan-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 16px;
+  background: #FFD700;
+  color: #1a1a1a;
+  border: 2px solid #1a1a1a;
+  border-radius: 100px;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 #1a1a1a;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.scan-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #1a1a1a;
+}
+
+.scan-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 #1a1a1a;
+}
+
+.retry-link {
+  background: none;
+  border: none;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: #856404;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Set number status badges */
+.set-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 7px 14px;
+  border-radius: 100px;
+  border: 2px solid #1a1a1a;
+  letter-spacing: 0.3px;
+}
+
+.set-badge.scanning {
+  background: #fff;
+  color: #555;
+  border-color: #ccc;
+}
+
+.set-badge.found {
+  background: #E3000B;
+  color: #fff;
+  border-color: #1a1a1a;
+  box-shadow: 2px 2px 0 #1a1a1a;
+}
+
+.set-badge.error {
+  background: #FFF3CD;
+  color: #856404;
+  border-color: #FFD700;
+}
+
+.scan-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ccc;
+  border-top-color: #555;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .remove-btn {
   font-family: 'Nunito', sans-serif;
   font-size: 13px;
@@ -424,6 +521,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.context-set-badge {
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: #E3000B;
+  border: 2px solid #1a1a1a;
+  border-radius: 6px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .start-over-btn {

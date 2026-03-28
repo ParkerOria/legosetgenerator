@@ -31,6 +31,10 @@ function App() {
   const [editablePrompt, setEditablePrompt] = useState('')
   const [selectedBuild, setSelectedBuild] = useState(null)
   const [currentStep, setCurrentStep] = useState(1)
+  const [setNumber, setSetNumber] = useState(null)
+  const [analyzingImage, setAnalyzingImage] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState(false)
+  const [uploadedFile, setUploadedFile] = useState(null)
   const fileInputRef = useRef(null)
 
   const totalSteps = MOCK_STEPS.length
@@ -38,21 +42,54 @@ function App() {
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true) }
   const handleDragLeave = () => setIsDragging(false)
 
+  const analyzeImage = async (file) => {
+    setAnalyzingImage(true)
+    setAnalyzeError(false)
+    setSetNumber(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/analyze-set', { method: 'POST', body: formData })
+      if (!res.ok) throw new Error('Request failed')
+      const data = await res.json()
+      setSetNumber(data.setNumber === 'unknown' ? null : data.setNumber)
+      if (data.setNumber === 'unknown') setAnalyzeError(true)
+    } catch {
+      setAnalyzeError(true)
+    } finally {
+      setAnalyzingImage(false)
+    }
+  }
+
   const handleDrop = (e) => {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files[0]
-    if (file && file.type.startsWith('image/')) setUploadedImage(URL.createObjectURL(file))
+    if (file && file.type.startsWith('image/')) {
+      setUploadedImage(URL.createObjectURL(file))
+      setUploadedFile(file)
+      setSetNumber(null)
+      setAnalyzeError(false)
+    }
   }
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
-    if (file) setUploadedImage(URL.createObjectURL(file))
+    if (file) {
+      setUploadedImage(URL.createObjectURL(file))
+      setUploadedFile(file)
+      setSetNumber(null)
+      setAnalyzeError(false)
+    }
   }
 
   const handleRemoveImage = (e) => {
     e.stopPropagation()
     setUploadedImage(null)
+    setUploadedFile(null)
+    setSetNumber(null)
+    setAnalyzingImage(false)
+    setAnalyzeError(false)
     fileInputRef.current.value = ''
   }
 
@@ -111,7 +148,47 @@ function App() {
               {uploadedImage ? (
                 <div className="upload-preview-wrap">
                   <img src={uploadedImage} alt="Uploaded LEGO set" className="upload-preview" />
-                  <button className="remove-btn" onClick={handleRemoveImage}>Remove</button>
+
+                  <div className="scan-row">
+                    {!setNumber && !analyzingImage && (
+                      <button
+                        className="scan-btn"
+                        onClick={(e) => { e.stopPropagation(); analyzeImage(uploadedFile) }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                        </svg>
+                        Find Set ID
+                      </button>
+                    )}
+
+                    {analyzingImage && (
+                      <div className="set-badge scanning">
+                        <div className="scan-spinner" />
+                        Scanning...
+                      </div>
+                    )}
+
+                    {!analyzingImage && setNumber && (
+                      <div className="set-badge found">
+                        Set #{setNumber}
+                      </div>
+                    )}
+
+                    {!analyzingImage && analyzeError && (
+                      <div className="set-badge error">
+                        ID not found —
+                        <button
+                          className="retry-link"
+                          onClick={(e) => { e.stopPropagation(); analyzeImage(uploadedFile) }}
+                        >
+                          retry
+                        </button>
+                      </div>
+                    )}
+
+                    <button className="remove-btn" onClick={handleRemoveImage}>Remove</button>
+                  </div>
                 </div>
               ) : (
                 <div className="upload-placeholder">
@@ -170,6 +247,9 @@ function App() {
                   <span className="context-label">Results for</span>
                   <span className="context-prompt">"{editablePrompt}"</span>
                 </div>
+                {setNumber && (
+                  <div className="context-set-badge">Set #{setNumber}</div>
+                )}
               </div>
               <button className="start-over-btn" onClick={() => setStage('input')}>← Start over</button>
             </div>
