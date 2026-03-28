@@ -49,6 +49,22 @@ function App() {
     return () => clearTimeout(t)
   }, [steps, revealedCount])
 
+  // Auto-fetch current step image and pre-fetch next when current finishes
+  useEffect(() => {
+    if (stage !== 'instructions' || steps.length === 0) return
+    const idx = currentStep - 1
+    // Fetch current step if not started
+    if (stepImages[idx] === undefined) {
+      fetchStepImage(idx)
+    }
+    // Pre-fetch next step when current is done
+    if (stepImages[idx] && stepImages[idx] !== 'loading') {
+      if (currentStep < steps.length && stepImages[currentStep] === undefined) {
+        fetchStepImage(currentStep)
+      }
+    }
+  }, [stage, currentStep, steps.length, stepImages])
+
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true) }
   const handleDragLeave = () => setIsDragging(false)
 
@@ -198,6 +214,14 @@ function App() {
     }
   }
 
+  const retryStepImage = (stepIndex) => {
+    setStepImages(prev => {
+      const next = { ...prev }
+      delete next[stepIndex]
+      return next
+    })
+  }
+
   const handleChooseBuild = () => {
     setCurrentStep(1)
     setStage('instructions')
@@ -241,9 +265,22 @@ function App() {
               <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} hidden />
               {uploadedImage ? (
                 <div className="upload-preview-wrap">
-                  <img src={uploadedImage} alt="Uploaded LEGO set" className="upload-preview" />
+                  {analyzeError ? (
+                    <div className="upload-error-overlay">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                      <p className="upload-error-title">No set number found</p>
+                      <p className="upload-error-sub">Make sure the set box is clearly visible and the set number is readable.</p>
+                      <button className="upload-different-btn" onClick={(e) => { e.stopPropagation(); handleRemoveImage(e) }}>
+                        Upload a different image
+                      </button>
+                    </div>
+                  ) : (
+                    <img src={uploadedImage} alt="Uploaded LEGO set" className="upload-preview" />
+                  )}
                   <div className="scan-row">
-                    {!setNumber && !analyzingImage && (
+                    {!setNumber && !analyzingImage && !analyzeError && (
                       <button className="scan-btn" onClick={(e) => { e.stopPropagation(); analyzeImage(uploadedFile) }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
@@ -256,12 +293,6 @@ function App() {
                     )}
                     {!analyzingImage && setNumber && (
                       <div className="set-badge found">Set #{setNumber}</div>
-                    )}
-                    {!analyzingImage && analyzeError && (
-                      <div className="set-badge error">
-                        ID not found —
-                        <button className="retry-link" onClick={(e) => { e.stopPropagation(); analyzeImage(uploadedFile) }}>retry</button>
-                      </div>
                     )}
                     <button className="remove-btn" onClick={handleRemoveImage}>Remove</button>
                   </div>
@@ -482,15 +513,19 @@ function App() {
                         </div>
                         <div className="step-desc-below">{steps[currentStep - 1]?.description ?? ''}</div>
                       </>
+                    ) : stepImages[currentStep - 1] === null ? (
+                      <div className="step-text-area">
+                        <p className="step-desc-main">{steps[currentStep - 1]?.description ?? ''}</p>
+                        <button className="gen-img-btn" onClick={() => retryStepImage(currentStep - 1)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
+                          </svg>
+                          Retry image
+                        </button>
+                      </div>
                     ) : (
                       <div className="step-text-area">
                         <p className="step-desc-main">{steps[currentStep - 1]?.description ?? ''}</p>
-                        <button className="gen-img-btn" onClick={() => fetchStepImage(currentStep - 1)}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
-                          </svg>
-                          Generate image
-                        </button>
                       </div>
                     )}
 
