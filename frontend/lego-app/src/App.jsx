@@ -186,6 +186,8 @@ function App() {
           title: step.title ?? '',
           description: step.description ?? '',
           summary: generatedBuild.summary ?? '',
+          overviewImageBase64: generatedBuild.imageBase64 ?? null,
+          prevImageBase64: stepIndex > 0 ? (stepImages[stepIndex - 1] || null) : null,
         }),
       })
       if (!res.ok) throw new Error('Failed')
@@ -464,17 +466,7 @@ function App() {
                       <span className="step-title-text">{steps[currentStep - 1]?.title ?? ''}</span>
                     </div>
 
-                    {currentStep === totalSteps ? (
-                      <div className={`step-image-area final-step`} style={{ background: '#1a1a1a' }}>
-                        <div className="step-img-studs" />
-                        <div className="completion-badge">
-                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M20 6 9 17l-5-5" />
-                          </svg>
-                          <span>Build Complete!</span>
-                        </div>
-                      </div>
-                    ) : stepImages[currentStep - 1] === 'loading' ? (
+                    {stepImages[currentStep - 1] === 'loading' ? (
                       <>
                         <div className="step-img-skeleton" />
                         <div className="step-desc-below">{steps[currentStep - 1]?.description ?? ''}</div>
@@ -499,6 +491,15 @@ function App() {
                           </svg>
                           Generate image
                         </button>
+                      </div>
+                    )}
+
+                    {currentStep === totalSteps && (
+                      <div className="completion-banner">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                        Build Complete!
                       </div>
                     )}
 

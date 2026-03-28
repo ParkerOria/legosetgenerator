@@ -135,6 +135,8 @@ class StepImageRequest(BaseModel):
     title: str
     description: str
     summary: str
+    overviewImageBase64: str | None = None
+    prevImageBase64: str | None = None
 
 
 @app.post("/api/generate-step-image")
@@ -146,6 +148,8 @@ async def generate_step_image_endpoint(req: StepImageRequest):
             req.title,
             req.description,
             req.summary,
+            req.overviewImageBase64,
+            req.prevImageBase64,
         )
         return {"imageBase64": image_base64}
     except Exception as e:

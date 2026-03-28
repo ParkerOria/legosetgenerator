@@ -137,19 +137,40 @@ def generate_idea_images(ideas: str, summary: str) -> str | None:
     return _extract_image_base64(response)
 
 
-def generate_step_image(step_num: int, step_title: str, step_description: str, summary: str) -> str | None:
+def generate_step_image(
+    step_num: int,
+    step_title: str,
+    step_description: str,
+    summary: str,
+    overview_image_base64: str | None = None,
+    prev_image_base64: str | None = None,
+) -> str | None:
     """Generate an image illustrating a single build step and return as base64."""
     from google.genai import types as _types
+
     prompt = (
         f"Generate a clear LEGO instruction manual image for Step {step_num}: {step_title}. "
         f"What to do: {step_description}. "
-        f"Available parts: {summary}. "
-        "Style: LEGO instruction booklet illustration, white background, showing exactly which pieces "
-        "are added in this step highlighted in the build."
+        "Style: LEGO instruction booklet illustration, white background, showing exactly which "
+        "pieces are added in this step. Keep style and scale consistent with any reference images."
     )
+
+    contents = []
+    if overview_image_base64:
+        contents.append(_types.Part.from_bytes(
+            data=base64.b64decode(overview_image_base64), mime_type="image/png"
+        ))
+        contents.append("Reference: this is the finished model.")
+    if prev_image_base64:
+        contents.append(_types.Part.from_bytes(
+            data=base64.b64decode(prev_image_base64), mime_type="image/png"
+        ))
+        contents.append("Reference: this is what the build looks like after the previous step — continue from this state.")
+    contents.append(prompt)
+
     response = client.models.generate_content(
         model=IMAGE_MODEL,
-        contents=prompt,
+        contents=contents,
         config=_types.GenerateContentConfig(
             response_modalities=["IMAGE", "TEXT"]
         ),
