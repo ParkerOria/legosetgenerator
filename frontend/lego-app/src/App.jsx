@@ -271,7 +271,24 @@ function App() {
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                       </svg>
                       <p className="upload-error-title">No set number found</p>
-                      <p className="upload-error-sub">Make sure the set box is clearly visible and the set number is readable.</p>
+                      <p className="upload-error-sub">Enter it manually or upload a clearer image.</p>
+                      <form
+                        className="manual-set-form"
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          const val = e.target.setInput.value.trim()
+                          if (val) { setSetNumber(val); setAnalyzeError(false) }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          name="setInput"
+                          className="manual-set-input"
+                          placeholder="e.g. 75192"
+                          maxLength={8}
+                        />
+                        <button type="submit" className="manual-set-confirm">Confirm</button>
+                      </form>
                       <button className="upload-different-btn" onClick={(e) => { e.stopPropagation(); handleRemoveImage(e) }}>
                         Upload a different image
                       </button>
