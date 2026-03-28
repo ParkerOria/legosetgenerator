@@ -289,6 +289,52 @@
   border-color: #FFD700;
 }
 
+.upload-error-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 20px;
+  text-align: center;
+  color: #c0392b;
+}
+
+.upload-error-title {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  margin: 0;
+  color: #c0392b;
+}
+
+.upload-error-sub {
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+  max-width: 220px;
+  line-height: 1.4;
+}
+
+.upload-different-btn {
+  margin-top: 4px;
+  background: #E3000B;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.upload-different-btn:hover {
+  background: #b80009;
+}
+
 .scan-spinner {
   width: 14px;
   height: 14px;
