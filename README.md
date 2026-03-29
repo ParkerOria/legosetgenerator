@@ -42,7 +42,6 @@ GEMINI_API_KEY=your_gemini_api_key_here
 REBRICKABLE_API_KEY=your_rebrickable_api_key_here
 Start the server:
 
-
 uvicorn genvision:app --reload
 The backend runs at http://localhost:8000.
 
