@@ -3,6 +3,17 @@
 .env.*
 !.env.example
 
+# java
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+.idea/
+*.log
+.properties
+
 # ── Python ─────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
