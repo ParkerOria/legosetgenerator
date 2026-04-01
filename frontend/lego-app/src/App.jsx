@@ -75,7 +75,7 @@ function App() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await fetch('/api/analyze-set', { method: 'POST', body: formData })
+      const res = await fetch('/api-brickgen/analyze-set', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Request failed')
       const data = await res.json()
       setSetNumber(data.setNumber === 'unknown' ? null : data.setNumber)
