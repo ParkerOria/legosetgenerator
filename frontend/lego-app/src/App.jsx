@@ -78,8 +78,8 @@ function App() {
       const res = await fetch('/api-brickgen/analyze-set', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Request failed')
       const data = await res.json()
-      setSetNumber(data.setNumber === 'unknown' ? null : data.setNumber)
-      if (data.setNumber === 'unknown') setAnalyzeError(true)
+      setSetNumber(data.setNumber === -1 ? null : data.setNumber)
+      if (data.setNumber === -1) setAnalyzeError(true)
     } catch {
       setAnalyzeError(true)
     } finally {

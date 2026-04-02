@@ -13,6 +13,7 @@ target/
 .idea/
 *.log
 .properties
+application.properties
 
 # ── Python ─────────────────────────────────────────────────
 __pycache__/

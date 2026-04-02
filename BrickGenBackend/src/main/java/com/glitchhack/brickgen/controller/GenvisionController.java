@@ -1,5 +1,6 @@
 package com.glitchhack.brickgen.controller;
 
+import com.glitchhack.brickgen.dto.AnalyzeSetResponse;
 import com.glitchhack.brickgen.service.GenvisionService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +20,16 @@ public class GenvisionController {
     @PostMapping(value = "/analyze-set", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AnalyzeSetResponse> analyzeSet(@RequestPart("file") MultipartFile file) throws Exception {
         int setNumber = genvisionService.analyzeSet(file);
+
+        System.out.println(setNumber + "setNumber?");
         return ResponseEntity.ok(new AnalyzeSetResponse(setNumber));
     }
 
-    public record AnalyzeSetResponse(int setNumber) {}
+    @PostMapping(value = "/generate-steps")
+    public ResponseEntity<>
+
+
+
 }
 
 //
