@@ -75,7 +75,7 @@ function App() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await fetch('/api-brickgen/analyze-set', { method: 'POST', body: formData })
+      const res = await fetch('/api/analyze-set', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Request failed')
       const data = await res.json()
       setSetNumber(data.setNumber === -1 ? null : data.setNumber)
@@ -119,24 +119,37 @@ function App() {
     fileInputRef.current.value = ''
   }
 
-  const fetchSteps = async (ideas, summary) => {
-    setStepsLoading(true)
+const fetchSteps = async (ideas, summary, overviewImageBase64) => {
+  setStepsLoading(true)
+  setSteps([])
+  setStepImages({})
+
+  try {
+    const res = await fetch('/api/generate-steps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ideas, summary, overviewImageBase64 }),
+    })
+
+    if (!res.ok) throw new Error('Steps failed')
+
+    const data = await res.json()
+
+    setSteps(data.steps ?? [])
+
+    const imagesMap = {}
+    data.images.forEach((img, i) => {
+      imagesMap[i] = img ?? null
+    })
+
+    setStepImages(imagesMap)
+
+  } catch {
     setSteps([])
-    try {
-      const res = await fetch('/api/generate-steps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ideas, summary }),
-      })
-      if (!res.ok) throw new Error('Steps failed')
-      const data = await res.json()
-      setSteps(data.steps ?? [])
-    } catch {
-      setSteps([])
-    } finally {
-      setStepsLoading(false)
-    }
+  } finally {
+    setStepsLoading(false)
   }
+}
 
   const handleGenerate = async () => {
     setEditablePrompt(prompt)
@@ -156,7 +169,11 @@ function App() {
       const data = await res.json()
       setGeneratedBuild(data)
       setStage('results')
-      fetchSteps(data.ideas, data.summary)
+      fetchSteps(
+          data.title + " " + data.description,
+          data.summary,
+          data.imageBase64
+        )
     } catch {
       setGenerateError(true)
       setStage('results')
@@ -180,7 +197,11 @@ function App() {
       const data = await res.json()
       setGeneratedBuild(data)
       setStage('results')
-      fetchSteps(data.ideas, data.summary)
+      fetchSteps(
+        data.title + " " + data.description,
+        data.summary,
+        data.imageBase64
+      )
     } catch {
       setGenerateError(true)
       setStage('results')

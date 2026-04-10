@@ -5,6 +5,7 @@ import base64
 import os
 from google import genai
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv()
 
@@ -176,3 +177,82 @@ def generate_step_image(
         ),
     )
     return _extract_image_base64(response)
+
+
+async def generate_step_images_batch(steps, summary, overview_image_base64):
+    """Generate ALL step images in parallel with consistent constraints."""
+    tasks = []
+
+    for step in steps:
+        tasks.append(asyncio.to_thread(
+            generate_step_image_consistent,
+            step["step"],
+            step.get("title", ""),
+            step.get("description", ""),
+            summary,
+            overview_image_base64,
+        ))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    images = []
+    for r in results:
+        if isinstance(r, Exception):
+            print(f"Step image failed: {r}")
+            images.append(None)
+        else:
+            images.append(r)
+
+    return images
+
+def generate_step_image_consistent(
+    step_num,
+    step_title,
+    step_description,
+    summary,
+    overview_image_base64,
+):
+    from google.genai import types as _types
+
+    prompt = f"""
+You are generating LEGO instruction booklet images.
+
+REFERENCE IMAGE:
+This is the FINAL completed LEGO model.
+
+Step {step_num}: {step_title}
+Instruction: {step_description}
+
+STRICT RULES:
+- The final model MUST remain identical to the reference
+- DO NOT change structure, colors, or proportions
+- ONLY show pieces added in THIS step
+- Keep camera angle EXACTLY the same across all steps
+- Clean white background
+- LEGO instruction manual style (simple, clear, minimal)
+
+Output: a clean LEGO instruction diagram
+"""
+
+    contents = []
+
+    if overview_image_base64:
+        contents.append(_types.Part.from_bytes(
+            data=base64.b64decode(overview_image_base64),
+            mime_type="image/png"
+        ))
+        contents.append("This is the FINAL model reference. Do not deviate from it.")
+
+    contents.append(prompt)
+
+    response = client.models.generate_content(
+        model=IMAGE_MODEL,
+        contents=contents,
+        config=_types.GenerateContentConfig(
+            response_modalities=["IMAGE"]
+        ),
+    )
+
+    return _extract_image_base64(response)
+
+

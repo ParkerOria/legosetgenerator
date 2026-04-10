@@ -1,4 +1,4 @@
-package com.glitchhack.brickgen.dto;
+package com.glitchhack.brickgen.dto.analyzeSet;
 
 public record AnalyzeSetResponse(int setNumber) {
 }

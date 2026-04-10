@@ -16,6 +16,7 @@ from lego_ideas import (
     generate_idea_instructions,
     generate_idea_images,
     generate_step_image,
+    generate_step_images_batch,
 )
 
 load_dotenv()
@@ -102,7 +103,6 @@ async def generate_build(req: BuildRequest):
             "description": description,
             "imageBase64": image_base64,
             "summary": summary,
-            "ideas": ideas_raw,
         }
 
     except Exception as e:
@@ -116,13 +116,29 @@ async def generate_build(req: BuildRequest):
 class StepsRequest(BaseModel):
     ideas: str
     summary: str
+    overviewImageBase64: str | None = None
 
 
 @app.post("/api/generate-steps")
 async def generate_steps_endpoint(req: StepsRequest):
     try:
-        steps = await asyncio.to_thread(generate_idea_instructions, req.ideas, req.summary)
-        return {"steps": steps}
+        steps = await asyncio.to_thread(
+            generate_idea_instructions,
+            req.ideas,
+            req.summary
+        )
+
+        images = await generate_step_images_batch(
+            steps,
+            req.summary,
+            req.overviewImageBase64  # NEW
+        )
+
+        return {
+            "steps": steps,
+            "images": images
+        }
+
     except Exception as e:
         print(f"Steps generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

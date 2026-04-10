@@ -1,6 +1,7 @@
 package com.glitchhack.brickgen.controller;
 
-import com.glitchhack.brickgen.dto.AnalyzeSetResponse;
+import com.glitchhack.brickgen.dto.analyzeSet.AnalyzeSetResponse;
+import com.glitchhack.brickgen.dto.analyzeSet.GenerateStepsResponse;
 import com.glitchhack.brickgen.service.GenvisionService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +27,12 @@ public class GenvisionController {
     }
 
     @PostMapping(value = "/generate-steps")
-    public ResponseEntity<>
+    public ResponseEntity<GenerateStepsResponse> generateSteps() {
+
+        GenerateStepsResponse generateStepsResponse = genvisionService.generateSteps();
+
+        return null;
+    }
 
 
 
